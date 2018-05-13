@@ -1,0 +1,3 @@
+*.csv
+tense/*
+__pycache__/*
