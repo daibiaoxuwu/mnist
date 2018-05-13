@@ -60,6 +60,7 @@ class rnnmodel(object):
         self.cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.pred, labels=self.y))
 # 优化器:
         self.optimizer = tf.train.RMSPropOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
+        self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
 # 预测正确率:(这个与训练无关,纯粹是监控使用)
         self.correct_pred = tf.equal(tf.argmax(self.pred,1), tf.argmax(self.y,1))
         self.accuracy = tf.reduce_mean(tf.cast(self.correct_pred, tf.float32))

@@ -171,8 +171,9 @@ class reader(object):
                 input()
 
     
+        answer=temp[:,0]
         temp=temp[:,1:]
-        return temp,answers
+        return temp,answer
 
 
 
