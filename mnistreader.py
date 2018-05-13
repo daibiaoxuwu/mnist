@@ -155,11 +155,16 @@ class reader(object):
             return [0]*self.embedding_size
         '''     
 
-    def list_tags(self,batch_size):
+    def list_tags(self,batch_size,test=False):
         self.pointer+=batch_size
-        if self.pointer>=self.readlength:
-            self.pointer=batch_size+random.randint(0,batch_size)
-            print('epoch')
+        if test==False:
+            if self.pointer>=self.readlength*5/6:
+                self.pointer=batch_size+random.randint(0,batch_size)
+                print('epoch')
+        else:
+            if self.pointer>=self.readlength:
+                self.pointer=batch_size+random.randint(0,batch_size)
+                print('epoch')
         temp=self.resp[self.pointer-batch_size:self.pointer]
 
         answers=np.zeros((batch_size,10))

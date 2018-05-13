@@ -97,10 +97,13 @@ def do_eval(sess, eval_correct,data_set,batch_size,images_placeholder,labels_pla
   """
   # And run one epoch of eval.
   true_count = 0  # Counts the number of correct predictions.
-  steps_per_epoch = data_set.readlength // FLAGS.batch_size
+  #steps_per_epoch = data_set.readlength // FLAGS.batch_size //6
+  #data_set.pointer=data_set.readlength*5//6
+  steps_per_epoch = data_set.readlength // FLAGS.batch_size 
+
   num_examples = steps_per_epoch * FLAGS.batch_size
   for step in xrange(steps_per_epoch):
-    inputs,answers=data_set.list_tags(batch_size)
+    inputs,answers=data_set.list_tags(batch_size,test=True)
     feed_dict= {
                 images_placeholder:inputs,
                 labels_placeholder:answers
@@ -178,7 +181,7 @@ def run_training():
       # for this particular training step.
 
     
-      inputs,answers=data_sets.list_tags(FLAGS.batch_size)
+      inputs,answers=data_sets.list_tags(FLAGS.batch_size,test=True)
       feed_dict = {
           images_placeholder: inputs,
           labels_placeholder: answers
@@ -203,7 +206,6 @@ def run_training():
         summary_writer.flush()
       if (step + 1) % 1000 == 0 or (step + 1) == FLAGS.max_steps:
         print('Training Data Eval:')
-        inputs,answers=data_sets.list_tags(FLAGS.batch_size)
         do_eval(sess,
                 eval_correct,data_sets,FLAGS.batch_size,
                 images_placeholder,
@@ -256,7 +258,7 @@ if __name__ == '__main__':
   parser.add_argument(
       '--max_steps',
       type=int,
-      default=2000,
+      default=2000000,
       help='Number of steps to run trainer.'
   )
   parser.add_argument(
