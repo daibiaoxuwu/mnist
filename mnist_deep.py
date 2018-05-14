@@ -35,6 +35,8 @@ from tensorflow.examples.tutorials.mnist import input_data
 import tensorflow as tf
 
 FLAGS = None
+import os
+os.environ["CUDA_VISIBLE_DEVICES"]=""#环境变量：使用第一块gpu
 
 
 def deepnn(x):

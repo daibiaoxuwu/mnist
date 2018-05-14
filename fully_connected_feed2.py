@@ -34,6 +34,7 @@ from tensorflow.examples.tutorials.mnist import mnist
 FLAGS = None
 
 
+os.environ["CUDA_VISIBLE_DEVICES"]="0"#环境变量：使用第一块gpu
 def placeholder_inputs(batch_size):
   """Generate placeholder variables to represent the input tensors.
 
@@ -147,7 +148,7 @@ def do_evalfake(sess, eval_correct,data_set,batch_size,images_placeholder,labels
     true_count += sess.run(eval_correct, feed_dict=feed_dict)
   precision = float(true_count) / num_examples
   print('Num examples: %d  Num correct: %d  Precision @ 1: %0.04f' %
-        (num_examples, true_count, precision))
+        (num_examples, true_count, precision),end='')
   data_set.pointer=oldpointer
   #print('pointer2:',data_set.pointer)
 
@@ -215,8 +216,8 @@ def run_training():
         saver.restore(sess,model_file)
 
     # Start the training loop.
+    start_time = time.time()
     for step in xrange(FLAGS.max_steps):
-      start_time = time.time()
 
       # Fill a feed dictionary with the actual set of images and labels
       # for this particular training step.
@@ -238,15 +239,15 @@ def run_training():
       duration = time.time() - start_time
 
       # Write the summaries and print an overview fairly often.
-      if step % 1000 == 0:
+      if step % 10000 == 0:
         # Print status to stdout.
         print('Step %d: loss = %.2f (%.3f sec)' % (step, loss_value, duration))
         # Update the events file.
         summary_str = sess.run(summary, feed_dict=feed_dict)
         summary_writer.add_summary(summary_str, step)
         summary_writer.flush()
-      if (step + 1) % 1000 == 0 or (step + 1) == FLAGS.max_steps:
-        print('Training Data Eval:')
+      if (step + 1) % 50000 == 0 or (step + 1) == FLAGS.max_steps:
+        #print('Training Data Eval:')
         '''
         do_eval(sess,
                 eval_correct,data_sets,FLAGS.batch_size,
@@ -259,7 +260,7 @@ def run_training():
                 labels_placeholder)
 
       # Save a checkpoint and evaluate the model periodically.
-      if (step + 1) % 1000 == 0 or (step + 1) == FLAGS.max_steps:
+      #if (step + 1) % 1000 == 0 or (step + 1) == FLAGS.max_steps:
         checkpoint_file = os.path.join(FLAGS.log_dir, 'model.ckpt')
         saver.save(sess, checkpoint_file, global_step=step)
         print('saved to',checkpoint_file)
@@ -305,7 +306,7 @@ if __name__ == '__main__':
   parser.add_argument(
       '--max_steps',
       type=int,
-      default=2000000,
+      default=2000000000,
       help='Number of steps to run trainer.'
   )
   parser.add_argument(
