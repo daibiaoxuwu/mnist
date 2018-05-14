@@ -1,3 +1,5 @@
 *.csv
 tense/*
 __pycache__/*
+logs/*
+*.swp
