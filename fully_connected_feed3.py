@@ -27,7 +27,7 @@ import time
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
-from mnistreader import reader
+from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.examples.tutorials.mnist import mnist
 
 # Basic model parameters as external flags.
@@ -78,6 +78,9 @@ def fill_feed_dict(data_set, images_pl, labels_pl):
   # `batch size` examples.
   images_feed, labels_feed = data_set.next_batch(FLAGS.batch_size,
                                                  FLAGS.fake_data)
+  print(len(images_feed),len(images_feed[0]),images_feed[0])
+  input()
+
   feed_dict = {
       images_pl: images_feed,
       labels_pl: labels_feed,
@@ -85,7 +88,11 @@ def fill_feed_dict(data_set, images_pl, labels_pl):
   return feed_dict
 
 
-def do_eval(sess, eval_correct,data_set,batch_size,images_placeholder,labels_placeholder):
+def do_eval(sess,
+            eval_correct,
+            images_placeholder,
+            labels_placeholder,
+            data_set):
   """Runs one evaluation against the full epoch of data.
 
   Args:
@@ -98,83 +105,23 @@ def do_eval(sess, eval_correct,data_set,batch_size,images_placeholder,labels_pla
   """
   # And run one epoch of eval.
   true_count = 0  # Counts the number of correct predictions.
-  steps_per_epoch = data_set.readlength // FLAGS.batch_size 
-  oldpointer= data_set.pointer
-  data_set.pointer=data_set.readlength
-  print(data_set.pointer)
-  #steps_per_epoch = data_set.readlength // FLAGS.batch_size 
-
+  steps_per_epoch = data_set.num_examples // FLAGS.batch_size
   num_examples = steps_per_epoch * FLAGS.batch_size
   for step in xrange(steps_per_epoch):
-    inputs,answers=data_set.list_tags(batch_size,test=False)
-    feed_dict= {
-                images_placeholder:inputs,
-                labels_placeholder:answers
-                }
-
-    true_count += sess.run(eval_correct, feed_dict=feed_dict)
-  precision = float(true_count) / num_examples
-  print('fakeeval Num examples: %d  Num correct: %d  Precision @ 1: %0.04f' %
-        (num_examples, true_count, precision))
-  data_set.pointer=oldpointer
-
-
-
-
-def do_evalfake(sess, eval_correct,data_set,batch_size,images_placeholder,labels_placeholder):
-  """Runs one evaluation against the full epoch of data.
-
-  Args:
-    sess: The session in which the model has been trained.
-    eval_correct: The Tensor that returns the number of correct predictions.
-    images_placeholder: The images placeholder.
-    labels_placeholder: The labels placeholder.
-    data_set: The set of images and labels to evaluate, from
-      input_data.read_data_sets().
-  """
-  # And run one epoch of eval.
-  true_count = 0  # Counts the number of correct predictions.
-  steps_per_epoch = data_set.readlength // FLAGS.batch_size // 6
-  oldpointer= data_set.pointer
-  data_set.pointer=data_set.readlength *5 //6
-  
-  #steps_per_epoch = data_set.readlength // FLAGS.batch_size 
-
-  num_examples = steps_per_epoch * FLAGS.batch_size
-  for step in xrange(steps_per_epoch):
-  #  print('pointer1:',data_set.pointer)
-    inputs,answers=data_set.list_tags(batch_size,test=True)
-    feed_dict= {
-                images_placeholder:inputs,
-                labels_placeholder:answers
-                }
-
+    feed_dict = fill_feed_dict(data_set,
+                               images_placeholder,
+                               labels_placeholder)
     true_count += sess.run(eval_correct, feed_dict=feed_dict)
   precision = float(true_count) / num_examples
   print('Num examples: %d  Num correct: %d  Precision @ 1: %0.04f' %
-        (num_examples, true_count, precision),end='')
-  data_set.pointer=oldpointer
-  #print('pointer2:',data_set.pointer)
-
+        (num_examples, true_count, precision))
 
 
 def run_training():
   """Train MNIST for a number of steps."""
   # Get the sets of images and labels for training, validation, and
   # test on MNIST.
-  data_sets=reader(patchlength=0,\
-            maxlength=300,\
-            embedding_size=100,\
-            num_verbs=10,\
-            allinclude=False,\
-            shorten=False,\
-            shorten_front=False,\
-            testflag=False,\
-            passnum=0,\
-            dpflag=False)
-
-  
-  
+  data_sets = input_data.read_data_sets(FLAGS.input_data_dir, FLAGS.fake_data)
 
   # Tell TensorFlow that the model will be built into the default Graph.
   with tf.Graph().as_default():
@@ -215,30 +162,17 @@ def run_training():
 
     # Run the Op to initialize the variables.
     sess.run(init)
-    if True:
-        model_file=tf.train.latest_checkpoint(FLAGS.log_dir)
-        saver.restore(sess,model_file)
 
     # Start the training loop.
-    start_time = time.time()
     for step in xrange(FLAGS.max_steps):
+      start_time = time.time()
 
       # Fill a feed dictionary with the actual set of images and labels
       # for this particular training step.
+      feed_dict = fill_feed_dict(data_sets.train,
+                                 images_placeholder,
+                                 labels_placeholder)
 
-    
-      inputs,answers=data_sets.list_tags(FLAGS.batch_size,test=False)
-#      print(len(inputs),len(inputs[0]),inputs[0])
-#      input()
-      inputs2=[]
-      for i  in range(len(inputs)):
-          inputs2.append(inputs[i]/255)
-#      print(len(inputs2),len(inputs2[0]),inputs2[0])
-#      input()
-      feed_dict = {
-          images_placeholder: inputs2,
-          labels_placeholder: answers
-      }
       # Run one step of the model.  The return values are the activations
       # from the `train_op` (which is discarded) and the `loss` Op.  To
       # inspect the values of your Ops or variables, you may include them
@@ -250,29 +184,18 @@ def run_training():
       duration = time.time() - start_time
 
       # Write the summaries and print an overview fairly often.
-      if step % 1000 == 0:
+      if step % 100 == 0:
         # Print status to stdout.
         print('Step %d: loss = %.2f (%.3f sec)' % (step, loss_value, duration))
         # Update the events file.
         summary_str = sess.run(summary, feed_dict=feed_dict)
         summary_writer.add_summary(summary_str, step)
         summary_writer.flush()
-      if (step + 1) % 5000 == 0 or (step + 1) == FLAGS.max_steps:
-        #print('Training Data Eval:')
-        do_eval(sess,
-                eval_correct,data_sets,FLAGS.batch_size,
-                images_placeholder,
-                labels_placeholder)
-        do_evalfake(sess,
-                eval_correct,data_sets,FLAGS.batch_size,
-                images_placeholder,
-                labels_placeholder)
+
       # Save a checkpoint and evaluate the model periodically.
-      #if (step + 1) % 1000 == 0 or (step + 1) == FLAGS.max_steps:
+      if (step + 1) % 1000 == 0 or (step + 1) == FLAGS.max_steps:
         checkpoint_file = os.path.join(FLAGS.log_dir, 'model.ckpt')
         saver.save(sess, checkpoint_file, global_step=step)
-        print('saved to',checkpoint_file)
-      '''
         # Evaluate against the training set.
         print('Training Data Eval:')
         do_eval(sess,
@@ -294,12 +217,12 @@ def run_training():
                 images_placeholder,
                 labels_placeholder,
                 data_sets.test)
-        '''
+
 
 def main(_):
-#  if tf.gfile.Exists(FLAGS.log_dir):
-#    tf.gfile.DeleteRecursively(FLAGS.log_dir)
-#  tf.gfile.MakeDirs(FLAGS.log_dir)
+  if tf.gfile.Exists(FLAGS.log_dir):
+    tf.gfile.DeleteRecursively(FLAGS.log_dir)
+  tf.gfile.MakeDirs(FLAGS.log_dir)
   run_training()
 
 
@@ -314,7 +237,7 @@ if __name__ == '__main__':
   parser.add_argument(
       '--max_steps',
       type=int,
-      default=2000000000,
+      default=2000,
       help='Number of steps to run trainer.'
   )
   parser.add_argument(
@@ -345,7 +268,8 @@ if __name__ == '__main__':
   parser.add_argument(
       '--log_dir',
       type=str,
-      default='logs/fully_connected_feed2s',
+      default=os.path.join(os.getenv('TEST_TMPDIR', '/tmp'),
+                           'tensorflow/mnist/logs/fully_connected_feed'),
       help='Directory to put the log data.'
   )
   parser.add_argument(
