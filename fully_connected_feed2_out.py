@@ -23,11 +23,12 @@ import argparse
 import os
 import sys
 import time
+import numpy as np
 
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
-from mnistreader import reader
+from mnistreaderout import reader
 from tensorflow.examples.tutorials.mnist import mnist
 
 # Basic model parameters as external flags.
@@ -187,18 +188,6 @@ def run_training():
                              FLAGS.hidden1,
                              FLAGS.hidden2)
 
-    # Add to the Graph the Ops for loss calculation.
-    loss = mnist.loss(logits, labels_placeholder)
-
-    # Add to the Graph the Ops that calculate and apply gradients.
-    train_op = mnist.training(loss, FLAGS.learning_rate)
-
-    # Add the Op to compare the logits to the labels during evaluation.
-    eval_correct = mnist.evaluation(logits, labels_placeholder)
-
-    # Build the summary Tensor based on the TF collection of Summaries.
-    summary = tf.summary.merge_all()
-
     # Add the variable initializer Op.
     init = tf.global_variables_initializer()
 
@@ -221,80 +210,54 @@ def run_training():
 
     # Start the training loop.
     start_time = time.time()
-    for step in xrange(FLAGS.max_steps):
+    ans=[]
+    with open('submission.csv','w') as f:
+        f.write('ImageId,Label\n')
+        count=0
+        for step in range(280):
 
-      # Fill a feed dictionary with the actual set of images and labels
-      # for this particular training step.
+          # Fill a feed dictionary with the actual set of images and labels
+          # for this particular training step.
 
+        
+          inputs,answers=data_sets.list_tags(FLAGS.batch_size,test=False)
+          '''
+          print(len(inputs),len(inputs[0]),inputs[0])
+          for i in range(784):
+              if(inputs[2][i]!=0):
+                  print('1',end=' ');
+              else:
+                  print('0',end=' ');
+              if(i%28==0): print(' ');
+          input()
+          '''
+          inputs2=[]
+          for i  in range(len(inputs)):
+              inputs2.append(inputs[i]/255)
+          '''
+          print(len(inputs2),len(inputs2[0]),inputs2[0])
+          input()
+          '''
+          feed_dict = {
+              images_placeholder: inputs2,
+              labels_placeholder: answers
+          }
+          # Run one step of the model.  The return values are the activations
+          # from the `train_op` (which is discarded) and the `loss` Op.  To
+          # inspect the values of your Ops or variables, you may include them
+          # in the list passed to sess.run() and the value tensors will be
+          # returned in the tuple from the call.
+          anst=sess.run([logits], feed_dict=feed_dict)[0]
+          for i in anst:
+              count+=1
+              f.write(str(count)+','+str(np.argmax(i))+'\n')
+              '''
+              ans.append(np.argmax(i))
+          print(type(anst),anst,ans)
+          input()'''
+   
     
-      inputs,answers=data_sets.list_tags(FLAGS.batch_size,test=False)
-#      print(len(inputs),len(inputs[0]),inputs[0])
-#      input()
-      inputs2=[]
-      for i  in range(len(inputs)):
-          inputs2.append(inputs[i]/255)
-#      print(len(inputs2),len(inputs2[0]),inputs2[0])
-#      input()
-      feed_dict = {
-          images_placeholder: inputs2,
-          labels_placeholder: answers
-      }
-      # Run one step of the model.  The return values are the activations
-      # from the `train_op` (which is discarded) and the `loss` Op.  To
-      # inspect the values of your Ops or variables, you may include them
-      # in the list passed to sess.run() and the value tensors will be
-      # returned in the tuple from the call.
-      _, loss_value = sess.run([train_op, loss],
-                               feed_dict=feed_dict)
 
-      duration = time.time() - start_time
-
-      # Write the summaries and print an overview fairly often.
-      if step % 1000 == 0:
-        # Print status to stdout.
-        print('Step %d: loss = %.2f (%.3f sec)' % (step, loss_value, duration))
-        # Update the events file.
-        summary_str = sess.run(summary, feed_dict=feed_dict)
-        summary_writer.add_summary(summary_str, step)
-        summary_writer.flush()
-      if (step + 1) % 5000 == 0 or (step + 1) == FLAGS.max_steps:
-        #print('Training Data Eval:')
-        do_eval(sess,
-                eval_correct,data_sets,FLAGS.batch_size,
-                images_placeholder,
-                labels_placeholder)
-        do_evalfake(sess,
-                eval_correct,data_sets,FLAGS.batch_size,
-                images_placeholder,
-                labels_placeholder)
-      # Save a checkpoint and evaluate the model periodically.
-      #if (step + 1) % 1000 == 0 or (step + 1) == FLAGS.max_steps:
-        checkpoint_file = os.path.join(FLAGS.log_dir, 'model.ckpt')
-        saver.save(sess, checkpoint_file, global_step=step)
-        print('saved to',checkpoint_file)
-      '''
-        # Evaluate against the training set.
-        print('Training Data Eval:')
-        do_eval(sess,
-                eval_correct,
-                images_placeholder,
-                labels_placeholder,
-                data_sets.train)
-        # Evaluate against the validation set.
-        print('Validation Data Eval:')
-        do_eval(sess,
-                eval_correct,
-                images_placeholder,
-                labels_placeholder,
-                data_sets.validation)
-        # Evaluate against the test set.
-        print('Test Data Eval:')
-        do_eval(sess,
-                eval_correct,
-                images_placeholder,
-                labels_placeholder,
-                data_sets.test)
-        '''
 
 def main(_):
 #  if tf.gfile.Exists(FLAGS.log_dir):
