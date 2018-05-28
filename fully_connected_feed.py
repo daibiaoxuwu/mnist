@@ -21,6 +21,7 @@ from __future__ import print_function
 # pylint: disable=missing-docstring
 import argparse
 import os
+os.environ["CUDA_VISIBLE_DEVICES"]=""#环境变量：使用第一块gpu
 import sys
 import time
 

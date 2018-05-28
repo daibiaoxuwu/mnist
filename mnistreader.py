@@ -114,6 +114,7 @@ class reader(object):
             print('readlength',self.readlength)
             self.pointer=random.randint(0,self.readlength-1)
 #            self.pointer=101118
+            self.pointer=0
             print('pointer',self.pointer)
 
             '''

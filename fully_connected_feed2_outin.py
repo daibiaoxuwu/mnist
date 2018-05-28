@@ -24,6 +24,7 @@ import os
 import sys
 import time
 import numpy as np
+import pandas as pd
 
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
@@ -141,10 +142,16 @@ def run_training():
     # Start the training loop.
     start_time = time.time()
     ans=[]
-    with open('submission6.csv','w') as f:
+
+    oldans=pd.read_csv('submission5.csv').values #filename可以直接从盘符开始，标明每一级的文件夹直到csv文件，header=None表示头部为空，sep=' '表示数据间使用空格作为分隔符，如果分隔符是逗号，只需换成 ‘，’即可。
+
+    with open('submission74.csv','w') as f:
         f.write('ImageId,Label\n')
         for step in range(28000):
           print(step,data_sets.pointer)
+          if(data_sets.pointer<20365):
+              inputs,answers=data_sets.list_tags(FLAGS.batch_size,test=True)
+              continue
           '''
           if(step!=data_sets.pointer):
                 print(step,data_sets.pointer)
@@ -187,16 +194,22 @@ def run_training():
           # returned in the tuple from the call.
           anst=sess.run([logits], feed_dict=feed_dict)[0]
           for i in anst:
-              f.write(str(data_sets.pointer)+','+str(np.argmax(i))+'\n')
-              if(data_sets.pointer>2333002 ):
-                  print('anst:',np.argmax(anst[0]),' gen:',data_sets.pointer,' step:',step)
+              trueans=np.argmax(i)
+              if(oldans[data_sets.pointer-1][1]!=np.argmax(anst[0])):
+#              if(data_sets.pointer>2333002 ):
+                  print('anst:',np.argmax(anst[0]),'oldans',oldans[data_sets.pointer-1],' gen:',data_sets.pointer,' step:',step)
                   for i2 in range(784):
-                      if(inputs[0][i2]!=0):
-                          print('1',end=' ');
+                      if(inputs[0][i2]>170):
+                          print('8',end=' ');
+                      elif(inputs[0][i2]>128):
+                          print('+',end=' ');
+                      elif(inputs[0][i2]>0):
+                          print('.',end=' ');
                       else:
                           print(' ',end=' ');
                       if(i2%28==0): print(' ');
-                  input()
+                  trueans=int(input('input trueans:'))
+              f.write(str(data_sets.pointer)+','+str(trueans)+'\n')
               '''
               ans.append(np.argmax(i))
           print(type(anst),anst,ans)

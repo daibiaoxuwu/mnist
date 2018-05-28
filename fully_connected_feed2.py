@@ -23,12 +23,13 @@ import argparse
 import os
 import sys
 import time
+import numpy as np
 
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
 from mnistreader import reader
-from tensorflow.examples.tutorials.mnist import mnist
+import mnist
 
 # Basic model parameters as external flags.
 FLAGS = None
@@ -85,7 +86,7 @@ def fill_feed_dict(data_set, images_pl, labels_pl):
   return feed_dict
 
 
-def do_eval(sess, eval_correct,data_set,batch_size,images_placeholder,labels_placeholder):
+def do_eval(sess, eval_correct,data_set,batch_size,images_placeholder,labels_placeholder,keep_prob):
   """Runs one evaluation against the full epoch of data.
 
   Args:
@@ -109,7 +110,8 @@ def do_eval(sess, eval_correct,data_set,batch_size,images_placeholder,labels_pla
     inputs,answers=data_set.list_tags(batch_size,test=False)
     feed_dict= {
                 images_placeholder:inputs,
-                labels_placeholder:answers
+                labels_placeholder:answers,
+                keep_prob:1
                 }
 
     true_count += sess.run(eval_correct, feed_dict=feed_dict)
@@ -121,7 +123,7 @@ def do_eval(sess, eval_correct,data_set,batch_size,images_placeholder,labels_pla
 
 
 
-def do_evalfake(sess, eval_correct,data_set,batch_size,images_placeholder,labels_placeholder):
+def do_evalfake(sess, eval_correct,data_set,batch_size,images_placeholder,labels_placeholder,logits,keep_prob):
   """Runs one evaluation against the full epoch of data.
 
   Args:
@@ -146,10 +148,26 @@ def do_evalfake(sess, eval_correct,data_set,batch_size,images_placeholder,labels
     inputs,answers=data_set.list_tags(batch_size,test=True)
     feed_dict= {
                 images_placeholder:inputs,
-                labels_placeholder:answers
+                labels_placeholder:answers,
+                keep_prob:1
                 }
 
-    true_count += sess.run(eval_correct, feed_dict=feed_dict)
+    newcount,logi=sess.run([eval_correct,logits], feed_dict=feed_dict)
+    true_count += newcount
+    for i0 in range(FLAGS.batch_size):
+            lgans=np.argmax(logi[i0])
+            for i0 in range(FLAGS.batch_size):
+                lgans=np.argmax(logi[i0])
+                if(lgans!=answers[i0] and False):
+                      for tt in range(784):
+                          if(tt%28==0): print(' ');
+                          if(inputs[i0][tt]!=0):
+                              print('1',end=' ');
+                          else:
+                              print('0',end=' ');
+#                      print('np',np.argmax(i),answers,answers[i0],'np')
+                      print(lgans,answers[i0])
+            # Update the events file.
   precision = float(true_count) / num_examples
   print('Num examples: %d  Num correct: %d  Precision @ 1: %0.04f' %
         (num_examples, true_count, precision),end='')
@@ -183,7 +201,7 @@ def run_training():
         FLAGS.batch_size)
 
     # Build a Graph that computes predictions from the inference model.
-    logits = mnist.inference(images_placeholder,
+    logits,keep_prob = mnist.inference(images_placeholder,
                              FLAGS.hidden1,
                              FLAGS.hidden2)
 
@@ -214,87 +232,103 @@ def run_training():
     # And then after everything is built:
 
     # Run the Op to initialize the variables.
-    sess.run(init)
-    if True:
-        model_file=tf.train.latest_checkpoint(FLAGS.log_dir)
-        saver.restore(sess,model_file)
+    with tf.Session() as session:
+        sess.run(init)
+        if True:
+            model_file=tf.train.latest_checkpoint(FLAGS.log_dir)
+            saver.restore(sess,model_file)
 
-    # Start the training loop.
-    start_time = time.time()
-    for step in xrange(FLAGS.max_steps):
+        # Start the training loop.
+        start_time = time.time()
+        for step in xrange(FLAGS.max_steps):
 
-      # Fill a feed dictionary with the actual set of images and labels
-      # for this particular training step.
+          # Fill a feed dictionary with the actual set of images and labels
+          # for this particular training step.
 
-    
-      inputs,answers=data_sets.list_tags(FLAGS.batch_size,test=False)
+        
+          inputs,answers=data_sets.list_tags(FLAGS.batch_size,test=False)
 #      print(len(inputs),len(inputs[0]),inputs[0])
 #      input()
-      inputs2=[]
-      for i  in range(len(inputs)):
-          inputs2.append(inputs[i]/255)
+          inputs2=[]
+          for i  in range(len(inputs)):
+              inputs2.append(inputs[i]/255)
 #      print(len(inputs2),len(inputs2[0]),inputs2[0])
 #      input()
-      feed_dict = {
-          images_placeholder: inputs2,
-          labels_placeholder: answers
-      }
-      # Run one step of the model.  The return values are the activations
-      # from the `train_op` (which is discarded) and the `loss` Op.  To
-      # inspect the values of your Ops or variables, you may include them
-      # in the list passed to sess.run() and the value tensors will be
-      # returned in the tuple from the call.
-      _, loss_value = sess.run([train_op, loss],
-                               feed_dict=feed_dict)
+          feed_dict = {
+              images_placeholder: inputs2,
+              labels_placeholder: answers,
+              keep_prob:0.5
+          }
+          # Run one step of the model.  The return values are the activations
+          # from the `train_op` (which is discarded) and the `loss` Op.  To
+          # inspect the values of your Ops or variables, you may include them
+          # in the list passed to sess.run() and the value tensors will be
+          # returned in the tuple from the call.
+          _, loss_value,logi = sess.run([train_op, loss,logits],
+                                   feed_dict=feed_dict)
 
-      duration = time.time() - start_time
+          duration = time.time() - start_time
 
-      # Write the summaries and print an overview fairly often.
-      if step % 1000 == 0:
-        # Print status to stdout.
-        print('Step %d: loss = %.2f (%.3f sec)' % (step, loss_value, duration))
-        # Update the events file.
-        summary_str = sess.run(summary, feed_dict=feed_dict)
-        summary_writer.add_summary(summary_str, step)
-        summary_writer.flush()
-      if (step + 1) % 5000 == 0 or (step + 1) == FLAGS.max_steps:
-        #print('Training Data Eval:')
-        do_eval(sess,
-                eval_correct,data_sets,FLAGS.batch_size,
-                images_placeholder,
-                labels_placeholder)
-        do_evalfake(sess,
-                eval_correct,data_sets,FLAGS.batch_size,
-                images_placeholder,
-                labels_placeholder)
-      # Save a checkpoint and evaluate the model periodically.
-      #if (step + 1) % 1000 == 0 or (step + 1) == FLAGS.max_steps:
-        checkpoint_file = os.path.join(FLAGS.log_dir, 'model.ckpt')
-        saver.save(sess, checkpoint_file, global_step=step)
-        print('saved to',checkpoint_file)
-      '''
-        # Evaluate against the training set.
-        print('Training Data Eval:')
-        do_eval(sess,
-                eval_correct,
-                images_placeholder,
-                labels_placeholder,
-                data_sets.train)
-        # Evaluate against the validation set.
-        print('Validation Data Eval:')
-        do_eval(sess,
-                eval_correct,
-                images_placeholder,
-                labels_placeholder,
-                data_sets.validation)
-        # Evaluate against the test set.
-        print('Test Data Eval:')
-        do_eval(sess,
-                eval_correct,
-                images_placeholder,
-                labels_placeholder,
-                data_sets.test)
-        '''
+          # Write the summaries and print an overview fairly often.
+          if step % 1000 == 0:
+            # Print status to stdout.
+            print('Step %d: loss = %.2f (%.3f sec)' % (step, loss_value, duration))
+#            print(logi)
+#            print(answers)
+            for i0 in range(FLAGS.batch_size):
+                lgans=np.argmax(logi[i0])
+                if(lgans!=answers[i0] and False):
+                      for tt in range(784):
+                          if(tt%28==0): print(' ');
+                          if(inputs[i0][tt]!=0):
+                              print('1',end=' ');
+                          else:
+                              print('0',end=' ');
+#                      print('np',np.argmax(i),answers,answers[i0],'np')
+                      print(lgans,answers[i0])
+            # Update the events file.
+            summary_str = sess.run(summary, feed_dict=feed_dict)
+            summary_writer.add_summary(summary_str, step)
+            summary_writer.flush()
+          if (step + 1) % 5000 == 0 or (step + 1) == FLAGS.max_steps:
+            #print('Training Data Eval:')
+            do_eval(sess,
+                    eval_correct,data_sets,FLAGS.batch_size,
+                    images_placeholder,
+                    labels_placeholder,keep_prob)
+            do_evalfake(sess,
+                    eval_correct,data_sets,FLAGS.batch_size,
+                    images_placeholder,
+                    labels_placeholder,
+                    logits,keep_prob)
+          # Save a checkpoint and evaluate the model periodically.
+          #if (step + 1) % 1000 == 0 or (step + 1) == FLAGS.max_steps:
+            checkpoint_file = os.path.join(FLAGS.log_dir, 'model.ckpt')
+            saver.save(sess, checkpoint_file, global_step=step)
+            print('saved to',checkpoint_file)
+          '''
+            # Evaluate against the training set.
+            print('Training Data Eval:')
+            do_eval(sess,
+                    eval_correct,
+                    images_placeholder,
+                    labels_placeholder,
+                    data_sets.train)
+            # Evaluate against the validation set.
+            print('Validation Data Eval:')
+            do_eval(sess,
+                    eval_correct,
+                    images_placeholder,
+                    labels_placeholder,
+                    data_sets.validation)
+            # Evaluate against the test set.
+            print('Test Data Eval:')
+            do_eval(sess,
+                    eval_correct,
+                    images_placeholder,
+                    labels_placeholder,
+                    data_sets.test)
+            '''
 
 def main(_):
 #  if tf.gfile.Exists(FLAGS.log_dir):
