@@ -166,17 +166,18 @@ def main(_):
   print('Saving graph to: %s' % graph_location)
   train_writer = tf.summary.FileWriter(graph_location)
   train_writer.add_graph(tf.get_default_graph())
+  data=reader.reader()
 
   with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     for i in range(20000):
-      batch = mnist.train.next_batch(50)
+      temp,answer = data.list_tags(50)
       if i % 100 == 0:
         do_evalfake(sess,
                 eval_correct,data_sets,FLAGS.batch_size,
                 images_placeholder,
                 labels_placeholder)
-      train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
+      train_step.run(feed_dict={x: temp, y_: answer, keep_prob: 0.5})
 
 
 if __name__ == '__main__':
