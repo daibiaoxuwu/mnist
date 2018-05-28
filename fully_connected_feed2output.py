@@ -28,7 +28,7 @@ import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
-from mnistreaderout import reader
+from mnistreader import reader
 from tensorflow.examples.tutorials.mnist import mnist
 
 # Basic model parameters as external flags.
@@ -86,6 +86,76 @@ def fill_feed_dict(data_set, images_pl, labels_pl):
   return feed_dict
 
 
+def do_eval(sess, eval_correct,data_set,batch_size,images_placeholder,labels_placeholder):
+  """Runs one evaluation against the full epoch of data.
+
+  Args:
+    sess: The session in which the model has been trained.
+    eval_correct: The Tensor that returns the number of correct predictions.
+    images_placeholder: The images placeholder.
+    labels_placeholder: The labels placeholder.
+    data_set: The set of images and labels to evaluate, from
+      input_data.read_data_sets().
+  """
+  # And run one epoch of eval.
+  true_count = 0  # Counts the number of correct predictions.
+  steps_per_epoch = data_set.readlength // FLAGS.batch_size 
+  oldpointer= data_set.pointer
+  data_set.pointer=data_set.readlength
+  print(data_set.pointer)
+  #steps_per_epoch = data_set.readlength // FLAGS.batch_size 
+
+  num_examples = steps_per_epoch * FLAGS.batch_size
+  for step in xrange(steps_per_epoch):
+    inputs,answers=data_set.list_tags(batch_size,test=False)
+    feed_dict= {
+                images_placeholder:inputs,
+                labels_placeholder:answers
+                }
+
+    true_count += sess.run(eval_correct, feed_dict=feed_dict)
+  precision = float(true_count) / num_examples
+  print('fakeeval Num examples: %d  Num correct: %d  Precision @ 1: %0.04f' %
+        (num_examples, true_count, precision))
+  data_set.pointer=oldpointer
+
+
+
+
+def do_evalfake(sess, eval_correct,data_set,batch_size,images_placeholder,labels_placeholder):
+  """Runs one evaluation against the full epoch of data.
+
+  Args:
+    sess: The session in which the model has been trained.
+    eval_correct: The Tensor that returns the number of correct predictions.
+    images_placeholder: The images placeholder.
+    labels_placeholder: The labels placeholder.
+    data_set: The set of images and labels to evaluate, from
+      input_data.read_data_sets().
+  """
+  # And run one epoch of eval.
+  true_count = 0  # Counts the number of correct predictions.
+  steps_per_epoch = data_set.readlength // FLAGS.batch_size // 6
+  oldpointer= data_set.pointer
+  data_set.pointer=data_set.readlength *5 //6
+  
+  #steps_per_epoch = data_set.readlength // FLAGS.batch_size 
+
+  num_examples = steps_per_epoch * FLAGS.batch_size
+  for step in xrange(steps_per_epoch):
+  #  print('pointer1:',data_set.pointer)
+    inputs,answers=data_set.list_tags(batch_size,test=True)
+    feed_dict= {
+                images_placeholder:inputs,
+                labels_placeholder:answers
+                }
+
+    true_count += sess.run(eval_correct, feed_dict=feed_dict)
+  precision = float(true_count) / num_examples
+  print('Num examples: %d  Num correct: %d  Precision @ 1: %0.04f' %
+        (num_examples, true_count, precision),end='')
+  data_set.pointer=oldpointer
+  #print('pointer2:',data_set.pointer)
 
 
 
@@ -141,34 +211,18 @@ def run_training():
     # Start the training loop.
     start_time = time.time()
     ans=[]
-    with open('submission6.csv','w') as f:
+    with open('submission.csv','w') as f:
         f.write('ImageId,Label\n')
-        for step in range(28000):
-          print(step,data_sets.pointer)
-          '''
-          if(step!=data_sets.pointer):
-                print(step,data_sets.pointer)
-                input()
-          if(step<23000):
-              inputs,answers=data_sets.list_tags(FLAGS.batch_size,test=True)
-              continue
-              '''
+        count=0
+        for step in range(42000):
 
           # Fill a feed dictionary with the actual set of images and labels
           # for this particular training step.
 
         
-          inputs,answers=data_sets.list_tags(FLAGS.batch_size,test=True)
-          '''
-          print(len(inputs),len(inputs[0]),inputs[0])
-          for i in range(784):
-              if(inputs[2][i]!=0):
-                  print('1',end=' ');
-              else:
-                  print('0',end=' ');
-              if(i%28==0): print(' ');
-          input()
-          '''
+          inputs,answers=data_sets.list_tags(FLAGS.batch_size,test=False)
+
+
           inputs2=[]
           for i  in range(len(inputs)):
               inputs2.append(inputs[i]/255)
@@ -187,20 +241,21 @@ def run_training():
           # returned in the tuple from the call.
           anst=sess.run([logits], feed_dict=feed_dict)[0]
           for i in anst:
-              f.write(str(data_sets.pointer)+','+str(np.argmax(i))+'\n')
-              if(data_sets.pointer>2333002 ):
-                  print('anst:',np.argmax(anst[0]),' gen:',data_sets.pointer,' step:',step)
-                  for i2 in range(784):
-                      if(inputs[0][i2]!=0):
+
+              count+=1
+              f.write(str(count)+','+str(np.argmax(i))+'\n')
+              ans.append(np.argmax(i))
+
+              if(np.argmax(i)!=answers[0]):
+                  for tt in range(784):
+                      if(tt%28==0): print(' ');
+                      if(inputs[0][tt]!=0):
                           print('1',end=' ');
                       else:
-                          print(' ',end=' ');
-                      if(i2%28==0): print(' ');
+                          print('0',end=' ');
+                  print('np',np.argmax(i),answers,answers[0],'np')
                   input()
-              '''
-              ans.append(np.argmax(i))
-          print(type(anst),anst,ans)
-          input()'''
+              print(step,data_sets.pointer,data_sets.readlength,i,np.argmax(i),answers,answers[0],'np')
    
     
 
