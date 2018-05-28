@@ -162,18 +162,10 @@ class reader(object):
                 self.pointer=batch_size+random.randint(0,batch_size)
                 print('epoch')
         else:
-            if self.pointer>=self.readlength:
+            if self.pointer>self.readlength:
                 self.pointer=batch_size+random.randint(0,batch_size)
                 print('epoch')
         temp=self.resp[self.pointer-batch_size:self.pointer]
-
-        answers=np.zeros((batch_size,10))
-        for num in range(batch_size):
-            try:
-                answers[num][temp[num][0]]=1
-            except:
-                print(self.readlength,self.pointer,num)
-                input()
 
     
         answer=[0]*batch_size

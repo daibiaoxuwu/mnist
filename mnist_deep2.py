@@ -30,7 +30,8 @@ import argparse
 import sys
 import tempfile
 
-from mnistreader import reader
+import mnistreader
+import mnistreaderout
 import numpy as np
 
 import tensorflow as tf
@@ -38,7 +39,7 @@ import tensorflow as tf
 FLAGS = None
 import os
 import sys
-log_dir='ckpt-deep2/'
+log_dir='ckpt-deep22/'
 os.environ["CUDA_VISIBLE_DEVICES"]=""#环境变量：使用第一块gpu
 
 
@@ -184,7 +185,7 @@ def do_evalfake(sess, eval_correct,data_set,batch_size,images_placeholder,labels
 
 def main(_):
   # Import data
-  data_sets=reader(patchlength=0,\
+  data_sets=mnistreader.reader(patchlength=0,\
             maxlength=300,\
             embedding_size=100,\
             num_verbs=10,\
@@ -212,7 +213,7 @@ def main(_):
   cross_entropy = tf.reduce_mean(cross_entropy)
 
   with tf.name_scope('adam_optimizer'):
-    train_step = tf.train.AdamOptimizer(1e-5).minimize(cross_entropy)
+    train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 
   with tf.name_scope('accuracy'):
     correct_prediction = tf.equal(tf.argmax(y_conv, 1), y_)
@@ -231,9 +232,68 @@ def main(_):
         model_file=tf.train.latest_checkpoint(log_dir)
         print(model_file)
         saver.restore(sess,model_file)
-    for i in range(20000):
+    for i in range(400000):
+#    if False:
       inputs,answers=data_sets.list_tags(batch_size,test=False)
-      crossloss,_=sess.run([cross_entropy,train_step],feed_dict={x: inputs, y_: answers, keep_prob: 0.5})
+#      crossloss,_=sess.run([cross_entropy,train_step],feed_dict={x: inputs, y_: answers, keep_prob: 0.5})
+      if i % 10 == 0:
+        train_accuracy = accuracy.eval(feed_dict={
+            x: inputs, y_: answers, keep_prob: 0.5})
+        print('step %d, training accuracy %g' % (i, train_accuracy))
+      if i%100==99:
+        testpointer=data_sets.pointer
+        data_sets.pointer=int(data_sets.readlength*5/6)
+        acc=0
+        cnt=0
+        while data_sets.pointer!=data_sets.readlength:  
+            cnt+=1
+            inputs,answers=data_sets.list_tags(batch_size,test=True)
+            train_accuracy = accuracy.eval(feed_dict={
+                x: inputs, y_: answers, keep_prob: 1.0})
+            acc+=train_accuracy
+        acc=acc/cnt
+        data_sets.pointer=testpointer
+        print('step %d, cnt:%d, test accuracy %g' % (i, cnt, acc))
+        print('saved to',saver.save(sess,log_dir+'model.ckpt',global_step=i))
+      train_step.run(feed_dict={x: inputs, y_: answers, keep_prob: 0.5})
+#    print('test accuracy %g' % accuracy.eval(feed_dict={
+#      x: inputs, y_: answers, keep_prob: 1.0}))
+    with open('submission6.csv','w') as f:
+        f.write('ImageId,Label\n')
+        data_sets=mnistreaderout.reader()
+        for step in range(560):
+#          print(step,data_sets.pointer)
+          inputs,answers=data_sets.list_tags(50,test=True)
+#          inputs2=[]
+#          for i  in range(len(inputs)):
+#              inputs2.append(inputs[i]/255)
+          feed_dict = { x: inputs, y_: answers, keep_prob:1.0}
+          # Run one step of the model.  The return values are the activations
+          # from the `train_op` (which is discarded) and the `loss` Op.  To
+          # inspect the values of your Ops or variables, you may include them
+          # in the list passed to sess.run() and the value tensors will be
+          # returned in the tuple from the call.
+          anst=sess.run([y_conv], feed_dict=feed_dict)[0]
+          for i in range(len(anst)):
+              f.write(str(data_sets.pointer-batch_size+i+1)+','+str(np.argmax(anst[i]))+'\n')
+          if(data_sets.pointer>100000000 ):
+              print('anst:',np.argmax(anst[0]),' gen:',data_sets.pointer,' step:',step)
+              for i2 in range(784):
+                  if(inputs[0][i2]!=0):
+                      print('1',end=' ');
+                  else:
+                      print(' ',end=' ');
+                  if(i2%28==0): print(' ');
+              input()
+    '''         
+      print(inputs.shape,answers)
+      input()
+      for k1 in range(50):
+          for k2 in range(784):
+              if(inputs[k1][k2]>0.5):print('1',end=' ')
+              else:print(' ',end=' ')
+              if(k2%28==27):print('')
+          print(answers[k1])
       if i % 10 == 0:
             print('loss:',crossloss,end=' ')
             do_evalfake(sess,
@@ -244,13 +304,9 @@ def main(_):
             sys.stdout.flush()
             if i%100==0:
                 print('saved to',saver.save(sess,log_dir+'model.ckpt',global_step=i))
-                
+      '''
       
 
-'''
-    print('test accuracy %g' % accuracy.eval(feed_dict={
-        x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}))
-'''
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('--data_dir', type=str,

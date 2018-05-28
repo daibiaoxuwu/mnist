@@ -158,16 +158,18 @@ class reader(object):
 
     def list_tags(self,batch_size,test=False):
         self.pointer+=batch_size
+#        print(self.pointer)
         if test==False:
             if self.pointer>=self.readlength*5/6:
                 self.pointer=batch_size+random.randint(0,batch_size)
-#                print('epoch')
+                print('epoch')
         else:
             if self.pointer>=self.readlength:
-                self.pointer=batch_size+random.randint(0,batch_size)
+                self.pointer=self.readlength
  #               print('epoch')
         temp=self.resp[self.pointer-batch_size:self.pointer]
 
+        '''
         answers=np.zeros((batch_size,10))
         for num in range(batch_size):
             try:
@@ -175,10 +177,25 @@ class reader(object):
             except:
                 print(self.readlength,self.pointer,num)
                 input()
-
+'''
     
         answer=temp[:,0]
         temp=temp[:,1:]
+        if test==False:
+            for i in temp:
+                add=(random.random()-0.5)/5+1
+                for j in range(784):
+                    i[j]*=add
+                    if(i[j]>255):i[j]=255
+                for j in range(5):
+                    rd=random.randint(0,783)
+                    if(i[rd]!=0):
+                        i[rd]=0
+                    else:
+                        i[rd]=random.randint(64,255)
+            #    print(i)
+            #    input()
+                
         return temp,answer
 
 
