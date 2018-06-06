@@ -234,7 +234,7 @@ def run_training():
     # Run the Op to initialize the variables.
     with tf.Session() as session:
         sess.run(init)
-        if True:
+        if False:
             model_file=tf.train.latest_checkpoint(FLAGS.log_dir)
             saver.restore(sess,model_file)
 
@@ -257,7 +257,7 @@ def run_training():
           feed_dict = {
               images_placeholder: inputs2,
               labels_placeholder: answers,
-              keep_prob:0.5
+              keep_prob:1
           }
           # Run one step of the model.  The return values are the activations
           # from the `train_op` (which is discarded) and the `loss` Op.  To
@@ -270,7 +270,7 @@ def run_training():
           duration = time.time() - start_time
 
           # Write the summaries and print an overview fairly often.
-          if step % 1000 == 0:
+          if step % 100 == 0:
             # Print status to stdout.
             print('Step %d: loss = %.2f (%.3f sec)' % (step, loss_value, duration))
 #            print(logi)
@@ -290,7 +290,7 @@ def run_training():
             summary_str = sess.run(summary, feed_dict=feed_dict)
             summary_writer.add_summary(summary_str, step)
             summary_writer.flush()
-          if (step + 1) % 5000 == 0 or (step + 1) == FLAGS.max_steps:
+          if (step + 1) % 500 == 0 or (step + 1) == FLAGS.max_steps:
             #print('Training Data Eval:')
             do_eval(sess,
                     eval_correct,data_sets,FLAGS.batch_size,
