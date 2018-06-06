@@ -40,7 +40,7 @@ FLAGS = None
 import os
 import sys
 log_dir='ckpt-deep25/'
-os.environ["CUDA_VISIBLE_DEVICES"]=""#环境变量：使用第一块gpu
+os.environ["CUDA_VISIBLE_DEVICES"]="-1"#环境变量：使用第一块gpu
 
 
 batch_size=50
@@ -200,16 +200,18 @@ def main(_):
         print('loading from:',model_file)
         saver.restore(sess,model_file)
     except:
-        print('checkpoint not found. will be saving to:',model_file)
-    for i in range(400000):
+        print('checkpoint not found. will be saving to:',log_dir)
+    totacc=0
+    totloss=0
+    for i in range(400000000):
 #    if False:
       inputs,answers=data_sets.list_tags(batch_size,test=False)
 #      crossloss,_=sess.run([cross_entropy,train_step],feed_dict={x: inputs, y_: answers, keep_prob: 0.5})
-      if i % 10 == 0:
-        train_accuracy,train_loss = sess.run([accuracy,cross_entropy],feed_dict={
-            x: inputs, y_: answers, keep_prob: 0.5})
-        print('step %d, training accuracy %g loss %g' % (i, train_accuracy,train_loss))
-      if i%100==99:
+      if i % 100 == 0:
+        print('step %d, training accuracy %g loss %g' % (i, totacc/100,totloss/100))
+        totacc=0
+        totloss=0
+      if i%1000==999:
         testpointer=data_sets.pointer
         data_sets.pointer=int(data_sets.readlength*5/6)
         acc=0
@@ -224,7 +226,10 @@ def main(_):
         data_sets.pointer=testpointer
         print('step %d, cnt:%d, test accuracy %g' % (i, cnt, acc))
         print('saved to',saver.save(sess,log_dir+'model.ckpt',global_step=i))
-      train_step.run(feed_dict={x: inputs, y_: answers, keep_prob: 0.7})
+      train_accuracy,train_loss,_ = sess.run([accuracy,cross_entropy,train_step],feed_dict={
+            x: inputs, y_: answers, keep_prob: 0.7})
+      totacc+=train_accuracy
+      totloss+=train_loss
 #    print('test accuracy %g' % accuracy.eval(feed_dict={
 #      x: inputs, y_: answers, keep_prob: 1.0}))
     with open('submission6.csv','w') as f:
