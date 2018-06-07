@@ -11,6 +11,7 @@ FLAGS = None
 
 
 batch_size=50
+input_length=784
 def placeholder_inputs(batch_size):
   images_placeholder = tf.placeholder(tf.float32, shape=(batch_size, 784))
   labels_placeholder = tf.placeholder(tf.int32, shape=(batch_size))
@@ -18,26 +19,7 @@ def placeholder_inputs(batch_size):
 
 
 def fill_feed_dict(data_set, images_pl, labels_pl):
-  """Fills the feed_dict for training the given step.
-
-  A feed_dict takes the form of:
-  feed_dict = {
-      <placeholder>: <tensor of values to be passed for placeholder>,
-      ....
-  }
-
-  Args:
-    data_set: The set of images and labels, from input_data.read_data_sets()
-    images_pl: The images placeholder, from placeholder_inputs().
-    labels_pl: The labels placeholder, from placeholder_inputs().
-
-  Returns:
-    feed_dict: The feed dictionary mapping from placeholders to values.
-  """
-  # Create the feed_dict for the placeholders filled with the next
-  # `batch size` examples.
-  images_feed, labels_feed = data_set.next_batch(FLAGS.batch_size,
-                                                 FLAGS.fake_data)
+  images_feed, labels_feed = data_set.next_batch(FLAGS.batch_size, FLAGS.fake_data)
   feed_dict = {
       images_pl: images_feed,
       labels_pl: labels_feed,
@@ -46,17 +28,6 @@ def fill_feed_dict(data_set, images_pl, labels_pl):
 
 
 def do_eval(sess, eval_correct,data_set,batch_size,images_placeholder,labels_placeholder,keep_prob):
-  """Runs one evaluation against the full epoch of data.
-
-  Args:
-    sess: The session in which the model has been trained.
-    eval_correct: The Tensor that returns the number of correct predictions.
-    images_placeholder: The images placeholder.
-    labels_placeholder: The labels placeholder.
-    data_set: The set of images and labels to evaluate, from
-      input_data.read_data_sets().
-  """
-  # And run one epoch of eval.
   true_count = 0  # Counts the number of correct predictions.
   steps_per_epoch = data_set.readlength // FLAGS.batch_size 
   oldpointer= data_set.pointer
@@ -134,77 +105,97 @@ def do_evalfake(sess, eval_correct,data_set,batch_size,images_placeholder,labels
   #print('pointer2:',data_set.pointer)
 
 
+def inference(images, hidden1_units, hidden2_units):
+  """Build the MNIST model up to where it may be used for inference.
+
+  Args:
+    images: Images placeholder, from inputs().
+    hidden1_units: Size of the first hidden layer.
+    hidden2_units: Size of the second hidden layer.
+
+  Returns:
+    softmax_linear: Output tensor with the computed logits.
+  """
+  # Hidden 1
+  return logits,keep_prob
+
 
 def run_training():
-  """Train MNIST for a number of steps."""
-  # Get the sets of images and labels for training, validation, and
-  # test on MNIST.
-  data_sets=reader(patchlength=0,\
-            maxlength=300,\
-            embedding_size=100,\
-            num_verbs=10,\
-            allinclude=False,\
-            shorten=False,\
-            shorten_front=False,\
-            testflag=False,\
-            passnum=0,\
-            dpflag=False)
+    data_sets=reader()
+    with tf.Graph().as_default():
+        images_placeholder = tf.placeholder(tf.float32, shape=(batch_size, input_length))
+        labels_placeholder = tf.placeholder(tf.int32, shape=(batch_size))
 
-  
-  
+        with tf.name_scope('hidden1'):
+            weights = tf.Variable(tf.truncated_normal([input_length, 128], stddev=1.0 / math.sqrt(float(input_length))),
+            name='weights')
+        biases = tf.Variable(tf.zeros([hidden1_units]),
+                             name='biases')
+        hidden1 = tf.nn.relu(tf.matmul(images, weights) + biases)
+# Hidden 2
+        with tf.name_scope('hidden2'):
+        weights = tf.Variable(
+            tf.truncated_normal([hidden1_units, hidden2_units],
+                                stddev=1.0 / math.sqrt(float(hidden1_units))),
+            name='weights')
+        biases = tf.Variable(tf.zeros([hidden2_units]),
+                             name='biases')
+        hidden2 = tf.nn.relu(tf.matmul(hidden1, weights) + biases)
 
-  # Tell TensorFlow that the model will be built into the default Graph.
-  with tf.Graph().as_default():
-    # Generate placeholders for the images and labels.
-    images_placeholder, labels_placeholder = placeholder_inputs(
-        FLAGS.batch_size)
 
-    # Build a Graph that computes predictions from the inference model.
-    logits,keep_prob = mnist.inference(images_placeholder,
-                             FLAGS.hidden1,
-                             FLAGS.hidden2)
+        keep_prob = tf.placeholder(tf.float32)
+        h_fc1_drop = tf.nn.dropout(hidden2, keep_prob)
+# Linear
+        with tf.name_scope('softmax_linear'):
+        weights = tf.Variable(
+            tf.truncated_normal([hidden2_units, NUM_CLASSES],
+                                stddev=1.0 / math.sqrt(float(hidden2_units))),
+            name='weights')
+        biases = tf.Variable(tf.zeros([NUM_CLASSES]),
+                             name='biases')
+        logits = tf.matmul(h_fc1_drop, weights) + biases
 
-    # Add to the Graph the Ops for loss calculation.
-    loss = mnist.loss(logits, labels_placeholder)
+# Add to the Graph the Ops for loss calculation.
+        loss = mnist.loss(logits, labels_placeholder)
 
-    # Add to the Graph the Ops that calculate and apply gradients.
-    train_op = mnist.training(loss, FLAGS.learning_rate)
+# Add to the Graph the Ops that calculate and apply gradients.
+        train_op = mnist.training(loss, FLAGS.learning_rate)
 
-    # Add the Op to compare the logits to the labels during evaluation.
-    eval_correct = mnist.evaluation(logits, labels_placeholder)
+# Add the Op to compare the logits to the labels during evaluation.
+        eval_correct = mnist.evaluation(logits, labels_placeholder)
 
-    # Build the summary Tensor based on the TF collection of Summaries.
-    summary = tf.summary.merge_all()
+# Build the summary Tensor based on the TF collection of Summaries.
+        summary = tf.summary.merge_all()
 
-    # Add the variable initializer Op.
-    init = tf.global_variables_initializer()
+# Add the variable initializer Op.
+        init = tf.global_variables_initializer()
 
-    # Create a saver for writing training checkpoints.
-    saver = tf.train.Saver()
+# Create a saver for writing training checkpoints.
+        saver = tf.train.Saver()
 
-    # Create a session for running Ops on the Graph.
-    sess = tf.Session()
+# Create a session for running Ops on the Graph.
+        sess = tf.Session()
 
-    # Instantiate a SummaryWriter to output summaries and the Graph.
-    summary_writer = tf.summary.FileWriter(FLAGS.log_dir, sess.graph)
+# Instantiate a SummaryWriter to output summaries and the Graph.
+        summary_writer = tf.summary.FileWriter(FLAGS.log_dir, sess.graph)
 
-    # And then after everything is built:
+# And then after everything is built:
 
-    # Run the Op to initialize the variables.
-    with tf.Session() as session:
+# Run the Op to initialize the variables.
+        with tf.Session() as session:
         sess.run(init)
         if True:
             model_file=tf.train.latest_checkpoint(FLAGS.log_dir)
             saver.restore(sess,model_file)
 
-        # Start the training loop.
+# Start the training loop.
         start_time = time.time()
         for step in xrange(FLAGS.max_steps):
 
           # Fill a feed dictionary with the actual set of images and labels
           # for this particular training step.
 
-        
+
           inputs,answers=data_sets.list_tags(FLAGS.batch_size,test=False)
 #      print(len(inputs),len(inputs[0]),inputs[0])
 #      input()
@@ -289,12 +280,12 @@ def run_training():
                     data_sets.test)
             '''
 
-def main(_):
+        def main(_):
 #  if tf.gfile.Exists(FLAGS.log_dir):
 #    tf.gfile.DeleteRecursively(FLAGS.log_dir)
 #  tf.gfile.MakeDirs(FLAGS.log_dir)
-  run_training()
+        run_training()
 
 
-if __name__ == '__main__':
-  tf.app.run()
+        if __name__ == '__main__':
+        tf.app.run()

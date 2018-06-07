@@ -180,7 +180,7 @@ def main(_):
   cross_entropy = tf.reduce_mean(cross_entropy)
 
   with tf.name_scope('adam_optimizer'):
-    train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+    train_step = tf.train.GradientDescentOptimizer(1e-4).minimize(cross_entropy)
 
   with tf.name_scope('accuracy'):
     correct_prediction = tf.equal(tf.argmax(y_conv, 1), y_)
@@ -227,7 +227,7 @@ def main(_):
         print('step %d, cnt:%d, test accuracy %g' % (i, cnt, acc))
         print('saved to',saver.save(sess,log_dir+'model.ckpt',global_step=i))
       train_accuracy,train_loss,_ = sess.run([accuracy,cross_entropy,train_step],feed_dict={
-            x: inputs, y_: answers, keep_prob: 0.7})
+            x: inputs, y_: answers, keep_prob: 1})
       totacc+=train_accuracy
       totloss+=train_loss
 #    print('test accuracy %g' % accuracy.eval(feed_dict={

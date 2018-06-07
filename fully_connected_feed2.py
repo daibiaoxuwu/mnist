@@ -35,7 +35,7 @@ import mnist
 FLAGS = None
 
 
-os.environ["CUDA_VISIBLE_DEVICES"]=""#环境变量：使用第一块gpu
+#os.environ["CUDA_VISIBLE_DEVICES"]=""#环境变量：使用第一块gpu
 def placeholder_inputs(batch_size):
   """Generate placeholder variables to represent the input tensors.
 
