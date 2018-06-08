@@ -201,10 +201,12 @@ def main(_):
     y_conv_norm=tf.nn.l2_normalize(y_conv,[1])
     cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
         labels=y_, logits=y_conv_norm)
+    '''
     cross_entropy_fake = tf.nn.sparse_softmax_cross_entropy_with_logits(
         labels=y_, logits=y_conv)
     cross_entropy_fake2 = tf.losses.sparse_softmax_cross_entropy(
         labels=y_, logits=y_conv)
+    '''
   cross_entropy_mean = tf.reduce_mean(cross_entropy)
 
   with tf.name_scope('adam_optimizer'):
@@ -237,10 +239,12 @@ def main(_):
       train_step.run(feed_dict={x: inputs, y_: answers, keep_prob: 0.5})
 #      crossloss,_=sess.run([cross_entropy,train_step],feed_dict={x: inputs, y_: answers, keep_prob: 0.5})
       if i % 10 == 0:
+        train_accuracy, lossop = sess.run([accuracy,cross_entropy_mean],feed_dict={x: inputs, y_: answers, keep_prob: 1})
+        print('step %d, training accuracy %g loss: %g' % (i, train_accuracy, lossop))
+        '''
         train_accuracy, lossop, yc, ycn, ce, cor, cfk, cfk2 = sess.run([accuracy,cross_entropy_mean, y_conv, y_conv_norm,cross_entropy, correct_prediction,cross_entropy_fake, cross_entropy_fake2],feed_dict={
             x: inputs, y_: answers, keep_prob: 0.5})
         print('step %d, training accuracy %g loss: %g' % (i, train_accuracy, lossop))
-        '''
         print('yconv:',yc[0],len(yc))
         print('yconvnorm:',ycn[0],len(ycn))
         print('yans:',answers[0])
