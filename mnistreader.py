@@ -1,40 +1,12 @@
+#encoding:utf-8
 import pandas as pd
 import numpy as np
-
-#encoding:utf-8
-#注意!没做nounflag.需要的去reader.py取
-
-import numpy as np
-import word2vec
-import re
 import time
 import os
-import pickle
 import random
-import requests
-import json
-from queue import Queue
-#bug:shorten和shorten_front不一样的话,每一遍都得重新计算而不是直接从队列里拿出来!
-
 
 class reader(object):
-    def __init__(self,\
-                patchlength=3,\
-                maxlength=700,\
-                embedding_size=100,\
-                num_verbs=2,\
-                allinclude=False,\
-                shorten=False,\
-                shorten_front=False,\
-                testflag=False,\
-                passnum=0,\
-                dpflag=False):   #几句前文是否shorten #是否输出不带tag,只有单词的句子 
-
-#patchlength:每次输入前文额外的句子的数量.
-#maxlength:每句话的最大长度.(包括前文额外句子).超过该长度的句子会被丢弃.
-#embedding_size:词向量维度数.
-
-
+    def __init__(self)
 
         self.testflag=testflag
 
