@@ -86,10 +86,13 @@ def deepnn(x):
     h_pool1_drop = tf.nn.dropout(h_pool1, keep_prob)
 
   with tf.name_scope('conv3'):
-    W_conv3 = weight_variable([3, 3, 64, 64])
-    b_conv3 = bias_variable([64])
+    W_conv3 = weight_variable([3, 3, 64, 10])
+    b_conv3 = bias_variable([10])
     h_conv3 = tf.nn.relu(conv2d(h_pool1_drop, W_conv3) + b_conv3)
+    h_pool2_drop=tf.nn.max_pool(h_conv3, ksize=[1, 14, 14, 1],
+                        strides=[1, 14, 14, 1], padding='SAME')
 
+  '''
   with tf.name_scope('conv4'):
     W_conv4 = weight_variable([5, 5, 64, 32])
     b_conv4 = bias_variable([32])
@@ -101,29 +104,14 @@ def deepnn(x):
     h_pool2 = max_pool_2x2(h_conv4_drop)
   with tf.name_scope('dropout3'):
     h_pool2_drop = tf.nn.dropout(h_pool2, keep_prob)
-
+  '''
   # Fully connected layer 1 -- after 2 round of downsampling, our 28x28 image
   # is down to 7x7x64 feature maps -- maps this to 1024 features.
   with tf.name_scope('fc1'):
-    h_flat = tf.reshape(h_pool2_drop, [-1, 7 * 7 * 32])
+    #h_flat = tf.reshape(h_pool2_drop, [-1, 7 * 7 * 32])
+    h_fc1 = tf.reshape(h_pool2_drop, [-1,10])
 
-    W_fc1 = weight_variable([7 * 7 * 32, 128])
-    b_fc1 = bias_variable([128])
-    h_fc1 = tf.nn.relu(tf.matmul(h_flat, W_fc1) + b_fc1)
-
-  with tf.name_scope('dropout4'):
-    h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
-
-  # Dropout - controls the complexity of the model, prevents co-adaptation of
-  # features.
-
-  # Map the 1024 features to 10 classes, one for each digit
-  with tf.name_scope('fc2'):
-    W_fc2 = weight_variable([128, 10])
-    b_fc2 = bias_variable([10])
-
-    y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
-  return y_conv, keep_prob
+  return h_fc1, keep_prob
 
 
 def conv2d(x, W):
@@ -175,12 +163,13 @@ def main(_):
   y_conv, keep_prob = deepnn(x)
 
   with tf.name_scope('loss'):
+    y_conv_norm=tf.nn.l2_normalize(y_conv,[1])
     cross_entropy = tf.losses.sparse_softmax_cross_entropy(
         labels=y_, logits=y_conv)
   cross_entropy = tf.reduce_mean(cross_entropy)
 
   with tf.name_scope('adam_optimizer'):
-    train_step = tf.train.GradientDescentOptimizer(1e-4).minimize(cross_entropy)
+    train_step = tf.train.GradientDescentOptimizer(1e-3).minimize(cross_entropy)
 
   with tf.name_scope('accuracy'):
     correct_prediction = tf.equal(tf.argmax(y_conv, 1), y_)
