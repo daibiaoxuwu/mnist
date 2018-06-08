@@ -10,7 +10,7 @@ batch_size=50
 input_length=784
 log_dir='fcckpt'
 
-def test_acc(sess, eval_correct,data_set,batch_size,images_placeholder,labels_placeholder,logits,keep_prob):
+def test_acc(sess, correctcount,data_set,batch_size,imagein,labelin,logits,keep_prob):
     oldpointer= data_set.pointer
     data_set.pointer=35000
     total=0
@@ -18,12 +18,12 @@ def test_acc(sess, eval_correct,data_set,batch_size,images_placeholder,labels_pl
 #  print('pointer1:',data_set.pointer)
         inputs,answers=data_set.list_tags(batch_size,test=True)
         feed_dict= {
-                    images_placeholder:inputs,
-                    labels_placeholder:answers,
+                    imagein:inputs,
+                    labelin:answers,
                     keep_prob:0.5
                     }
 
-        newcount,logi=sess.run([eval_correct,logits], feed_dict=feed_dict)
+        newcount,logi=sess.run([correctcount,logits], feed_dict=feed_dict)
         total += newcount
         '''
         for i0 in range(batch_size):
@@ -45,37 +45,72 @@ def test_acc(sess, eval_correct,data_set,batch_size,images_placeholder,labels_pl
     print('correct: %d  precision: %f' % (total, precision),end='')
     data_set.pointer=oldpointer
 
+def weight(shape):
+  return tf.Variable(tf.truncated_normal(shape, stddev=0.1))
+
+def bias(shape):
+  return tf.Variable(tf.constant(0.1, shape=shape))
+
+def conv2d(in, weight):
+  out=tf.nn.conv2d(in, weight, strides=[1, 1, 1, 1], padding='SAME')
+  return out
 
 def main(_):
     data_sets=reader()
     with tf.Graph().as_default():
-        images_placeholder = tf.placeholder(tf.float32, shape=(batch_size, input_length))
-        labels_placeholder = tf.placeholder(tf.int32, shape=(batch_size))
+        imagein = tf.placeholder(tf.float32, shape=(batch_size, input_length))
+        labelin = tf.placeholder(tf.int32, shape=(batch_size))
+        with tf.name_scope('reshape'):
+            re_image = tf.reshape(imagein, [-1, 28, 28, 1])
 
+          # First convolutional layer - maps one grayscale image to 32 feature maps.
         with tf.name_scope('conv1'):
-            weights = tf.Variable(tf.truncated_normal([input_length, 128], stddev=1.0 / math.sqrt(float(input_length))), name='weights')
-            biases = tf.Variable(tf.zeros([128]), name='biases')
-            hidden1 = tf.nn.relu(tf.matmul(images_placeholder, weights) + biases)
-# Hidden 2
+            w_conv1 = weight([5, 5, 1, 32])
+            b_conv1 = bias([32])
+            h_conv1 = tf.nn.relu(conv2d(re_image, w_conv1) + b_conv1)
+
+          # Pooling layer - downsamples by 2X.
+        with tf.name_scope('pool1'):
+            h_pool1 = max_pool_2x2(h_conv1)
+
+          # Second convolutional layer -- maps 32 feature maps to 64.
         with tf.name_scope('conv2'):
-            weights = tf.Variable( tf.truncated_normal([128, 32], stddev=1.0 / math.sqrt(float(128))), name='weights')
-            biases = tf.Variable(tf.zeros([32]), name='biases')
-            hidden2 = tf.nn.relu(tf.matmul(hidden1, weights) + biases)
+            w_conv2 = weight([5, 5, 32, 64])
+            b_conv2 = bias([64])
+            h_conv2 = tf.nn.relu(conv2d(h_pool1, w_conv2) + b_conv2)
 
-        keep_prob = tf.placeholder(tf.float32)
-        h_fc1_drop = tf.nn.dropout(hidden2, keep_prob)
-# Linear
-        with tf.name_scope('softmax'):
-            weights = tf.Variable( tf.truncated_normal([32, 10], stddev=1.0 / math.sqrt(float(32))), name='weights')
-            biases = tf.Variable(tf.zeros([10]), name='biases')
-            logits = tf.matmul(h_fc1_drop, weights) + biases
+          # Second pooling layer.
+        with tf.name_scope('pool2'):
+            h_pool2 = max_pool_2x2(h_conv2)
 
-        loss=tf.losses.sparse_softmax_cross_entropy(labels=labels_placeholder, logits=logits)
-        eval_correct=tf.reduce_sum(tf.cast(tf.nn.in_top_k(logits,labels_placeholder,1), tf.int32))
+          # Fully connected layer 1 -- after 2 round of downsampling, our 28x28 image
+          # is down to 7x7x64 feature maps -- maps this to 1024 features.
+        with tf.name_scope('fc1'):
+            w_fc1 = weight([7 * 7 * 64, 1024])
+            b_fc1 = bias([1024])
 
-        tf.summary.scalar('loss', loss)
+            h_pool2_flat = tf.reshape(h_pool2, [-1, 7 * 7 * 64])
+            h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, w_fc1) + b_fc1)
+
+          # Dropout - controls the complexity of the model, prevents co-adaptation of
+          # features.
+        with tf.name_scope('dropout'):
+            keep_prob = tf.placeholder(tf.float32)
+            h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+
+          # Map the 1024 features to 10 classes, one for each digit
+        with tf.name_scope('fc2'):
+            w_fc2 = weight([1024, 10])
+            b_fc2 = bias([10])
+
+            y_predict = tf.matmul(h_fc1_drop, w_fc2) + b_fc2
+
+
+        loss=tf.losses.sparse_softmax_cross_entropy(labels=labelin, logits=y_predict)
+        correctcount=tf.reduce_sum(tf.cast(tf.nn.in_top_k(logits,labelin,1), tf.int32))
+
         optimizer = tf.train.GradientDescentOptimizer(0.001)
-        train_op = optimizer.minimize(loss)
+        trainop = optimizer.minimize(loss)
 
 
         saver = tf.train.Saver()
@@ -94,11 +129,11 @@ def main(_):
               for i  in range(len(inputs)):
                   inputs2.append(inputs[i]/255)
               feed_dict = {
-                  images_placeholder: inputs2,
-                  labels_placeholder: answers,
+                  imagein: inputs2,
+                  labelin: answers,
                   keep_prob:0.5
               }
-              _, loss_value,logi = sess.run([train_op, loss,logits], feed_dict=feed_dict)
+              _, loss_value,logi = sess.run([trainop, loss,logits], feed_dict=feed_dict)
 
               duration = time.time() - start_time
 
@@ -119,7 +154,7 @@ def main(_):
                 '''
 
               if (step + 1) % 500 == 0:
-                test_acc(sess, eval_correct,data_sets,batch_size, images_placeholder, labels_placeholder, logits,keep_prob)
+                test_acc(sess, correctcount,data_sets,batch_size, imagein, labelin, logits,keep_prob)
                 checkpoint_file = os.path.join(log_dir, 'model.ckpt')
                 saver.save(sess, checkpoint_file, global_step=step)
                 print('saved to',checkpoint_file)
