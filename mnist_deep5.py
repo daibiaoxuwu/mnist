@@ -140,16 +140,7 @@ def bias_variable(shape):
 
 def main(_):
   # Import data
-  data_sets=mnistreader.reader(patchlength=0,\
-            maxlength=300,\
-            embedding_size=100,\
-            num_verbs=10,\
-            allinclude=False,\
-            shorten=False,\
-            shorten_front=False,\
-            testflag=False,\
-            passnum=0,\
-            dpflag=False)
+  data_sets=mnistreader.reader()
 
   
 

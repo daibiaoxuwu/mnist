@@ -134,34 +134,34 @@ def main(_):
                   labelin: answers,
                   keep_prob:0.5
               }
-              _, loss_value = sess.run([trainop, loss], feed_dict=feed_dict)
+              _, loss_value, ypr, yprmid , cor = sess.run([trainop, loss, y_predict, y_predict_mid, correctcount], feed_dict=feed_dict)
 
               duration = time.time() - start_time
 
               if step % 10 == 0:
-                  print('step: %d loss: %f time: %f' % (step, loss_value, duration), end='')
+                print('Step %d: loss = %.2f (%.3f sec)' % (step, loss_value, duration))
+                print('ypr',ypr[0])
+                print('yprmid',yprmid[0])
 
-                  '''
-                  for i0 in range(FLAGS.batch_size):
-                        lgans=np.argmax(logi[i0])
-                        if(lgans!=answers[i0] and False):
-                              for tt in range(784):
-                                  if(tt%28==0): print(' ');
-                                  if(inputs[i0][tt]!=0):
-                                      print('1',end=' ');
-                                  else:
-                                      print('0',end=' ');
-                              print(lgans,answers[i0])
-                  '''
+                '''
+                for i0 in range(FLAGS.batch_size):
+                    lgans=np.argmax(logi[i0])
+                    if(lgans!=answers[i0] and False):
+                          for tt in range(784):
+                              if(tt%28==0): print(' ');
+                              if(inputs[i0][tt]!=0):
+                                  print('1',end=' ');
+                              else:
+                                  print('0',end=' ');
+#                      print('np',np.argmax(i),answers,answers[i0],'np')
+                          print(lgans,answers[i0])
+                '''
 
-                  if step % 50 == 0:
-                        test_acc(sess, correctcount,data_sets,batch_size, imagein, labelin, keep_prob)
-                        checkpoint_file = os.path.join(log_dir, 'model.ckpt')
-                        saver.save(sess, checkpoint_file, global_step=step)
-                        print('saved to',checkpoint_file)
-                  else:
-                        print()
-
+              if step % 50 == 0:
+                test_acc(sess, correctcount,data_sets,batch_size, imagein, labelin, keep_prob)
+                checkpoint_file = os.path.join(log_dir, 'model.ckpt')
+                saver.save(sess, checkpoint_file, global_step=step)
+                print('saved to',checkpoint_file)
 
 
 

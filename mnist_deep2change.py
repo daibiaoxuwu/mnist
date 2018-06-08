@@ -39,8 +39,8 @@ import tensorflow as tf
 FLAGS = None
 import os
 import sys
-log_dir='ckpt-deep24/'
-os.environ["CUDA_VISIBLE_DEVICES"]=""#环境变量：使用第一块gpu
+log_dir='ckpt-deep22/'
+os.environ["CUDA_VISIBLE_DEVICES"]="-1"#环境变量：使用第一块gpu
 
 
 batch_size=50
@@ -83,20 +83,14 @@ def deepnn(x):
   with tf.name_scope('pool2'):
     h_pool2 = max_pool_2x2(h_conv2)
 
-  with tf.name_scope('conv3'):
-    W_conv3 = weight_variable([5, 5, 64, 128])
-    b_conv3 = bias_variable([128])
-    h_conv3 = tf.nn.relu(conv2d(h_pool2, W_conv3) + b_conv3)
-
-
   # Fully connected layer 1 -- after 2 round of downsampling, our 28x28 image
   # is down to 7x7x64 feature maps -- maps this to 1024 features.
   with tf.name_scope('fc1'):
-    W_fc1 = weight_variable([7 * 7 * 128, 1024])
+    W_fc1 = weight_variable([7 * 7 * 64, 1024])
     b_fc1 = bias_variable([1024])
 
-    h_pool3_flat = tf.reshape(h_conv3, [-1, 7 * 7 * 128])
-    h_fc1 = tf.nn.relu(tf.matmul(h_pool3_flat, W_fc1) + b_fc1)
+    h_pool2_flat = tf.reshape(h_pool2, [-1, 7 * 7 * 64])
+    h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
 
   # Dropout - controls the complexity of the model, prevents co-adaptation of
   # features.
@@ -192,7 +186,6 @@ def do_evalfake(sess, eval_correct,data_set,batch_size,images_placeholder,labels
 def main(_):
   # Import data
   data_sets=mnistreader.reader()
-
   
 
   # Create the model
@@ -205,12 +198,17 @@ def main(_):
   y_conv, keep_prob = deepnn(x)
 
   with tf.name_scope('loss'):
-    cross_entropy = tf.losses.sparse_softmax_cross_entropy(
+    y_conv_norm=tf.nn.l2_normalize(y_conv,[1])
+    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
+        labels=y_, logits=y_conv_norm)
+    cross_entropy_fake = tf.nn.sparse_softmax_cross_entropy_with_logits(
         labels=y_, logits=y_conv)
-  cross_entropy = tf.reduce_mean(cross_entropy)
+    cross_entropy_fake2 = tf.losses.sparse_softmax_cross_entropy(
+        labels=y_, logits=y_conv)
+  cross_entropy_mean = tf.reduce_mean(cross_entropy)
 
   with tf.name_scope('adam_optimizer'):
-    train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+    train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy_mean)
 
   with tf.name_scope('accuracy'):
     correct_prediction = tf.equal(tf.argmax(y_conv, 1), y_)
@@ -225,34 +223,59 @@ def main(_):
   saver = tf.train.Saver()
   with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
-    if True:
+    try:
         model_file=tf.train.latest_checkpoint(log_dir)
         print(model_file)
         saver.restore(sess,model_file)
+    except Exception as e:
+        print(e)
+    maxacc=0
+    minloss=1000
     for i in range(400000):
 #    if False:
       inputs,answers=data_sets.list_tags(batch_size,test=False)
+      train_step.run(feed_dict={x: inputs, y_: answers, keep_prob: 0.5})
 #      crossloss,_=sess.run([cross_entropy,train_step],feed_dict={x: inputs, y_: answers, keep_prob: 0.5})
       if i % 10 == 0:
-        train_accuracy,train_loss = sess.run([accuracy,cross_entropy],feed_dict={
+        train_accuracy, lossop, yc, ycn, ce, cor, cfk, cfk2 = sess.run([accuracy,cross_entropy_mean, y_conv, y_conv_norm,cross_entropy, correct_prediction,cross_entropy_fake, cross_entropy_fake2],feed_dict={
             x: inputs, y_: answers, keep_prob: 0.5})
-        print('step %d, training accuracy %g loss %g' % (i, train_accuracy,train_loss))
-      if i%100==99:
+        print('step %d, training accuracy %g loss: %g' % (i, train_accuracy, lossop))
+        '''
+        print('yconv:',yc[0],len(yc))
+        print('yconvnorm:',ycn[0],len(ycn))
+        print('yans:',answers[0])
+        print('cross:',ce[0])
+        print('correct:',cor[0])
+        print('convfake:',cfk[0])
+        print('convfake2:',cfk2)
+        '''
+      if i%100==0:
         testpointer=data_sets.pointer
         data_sets.pointer=int(data_sets.readlength*5/6)
         acc=0
         cnt=0
+        losstot=0
         while data_sets.pointer!=data_sets.readlength:  
             cnt+=1
             inputs,answers=data_sets.list_tags(batch_size,test=True)
-            train_accuracy = accuracy.eval(feed_dict={
-                x: inputs, y_: answers, keep_prob: 1.0})
+            train_accuracy, lossop = sess.run([accuracy,cross_entropy_mean],feed_dict={
+                x: inputs, y_: answers, keep_prob: 1})
             acc+=train_accuracy
+            losstot+=lossop
         acc=acc/cnt
+        losstot=losstot/cnt
         data_sets.pointer=testpointer
-        print('step %d, cnt:%d, test accuracy %g' % (i, cnt, acc))
-        print('saved to',saver.save(sess,log_dir+'model.ckpt',global_step=i))
-      train_step.run(feed_dict={x: inputs, y_: answers, keep_prob: 0.7})
+        print('step %d, cnt:%d, test accuracy %g maxacc %g loss %g' % (i, cnt, acc, maxacc, losstot))
+        if(acc>maxacc or (acc==maxacc and losstot<minloss) or True):
+        #if(losstot<minloss):
+            maxacc=acc
+            minloss=losstot
+            print('saved to',saver.save(sess,log_dir+'model.ckpt',global_step=i))
+        elif acc-maxacc<-0.03:
+            model_file=tf.train.latest_checkpoint(log_dir)
+            print('reload from:',model_file)
+            saver.restore(sess,model_file)
+            
 #    print('test accuracy %g' % accuracy.eval(feed_dict={
 #      x: inputs, y_: answers, keep_prob: 1.0}))
     with open('submission6.csv','w') as f:
