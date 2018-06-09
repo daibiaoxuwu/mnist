@@ -160,7 +160,7 @@ class reader(object):
         self.pointer+=batch_size
 #        print(self.pointer)
         if test==False:
-            if self.pointer>=self.readlength*5/6:
+            if self.pointer>=self.readlength:
                 self.pointer=batch_size+random.randint(0,batch_size)
                 print('epoch')
         else:
