@@ -174,7 +174,7 @@ def main(_):
     minloss=1000
     for i in range(400000):
 #    if False:
-      inputs,answers=data_sets.list_tags(batch_size,test=False)
+      inputs,answers=data_sets.list_tags(batch_size)
       if data_sets.pointer<35000 and i % 100 == 0:
         train_accuracy = accuracy.eval(feed_dict={
             x: inputs, y_: answers, keep_prob: 1.0})
@@ -196,7 +196,7 @@ def main(_):
         data_sets=mnistreaderout.reader()
         for step in range(560):
 #          print(step,data_sets.pointer)
-          inputs,answers=data_sets.list_tags(50,test=True)
+          inputs,answers=data_sets.list_tags(batch_size)
 #          inputs2=[]
 #          for i  in range(len(inputs)):
 #              inputs2.append(inputs[i]/255)
