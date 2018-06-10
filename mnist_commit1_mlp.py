@@ -1,4 +1,5 @@
 import os
+os.environ["CUDA_VISIBLE_DEVICES"]="-1"#环境变量：使用第一块gpu
 import time
 import math
 import numpy as np
