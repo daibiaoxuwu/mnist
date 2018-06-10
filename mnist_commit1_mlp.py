@@ -61,27 +61,18 @@ def main(_):
         imagein = tf.placeholder(tf.float32, shape=(batch_size, input_length))
         labelin = tf.placeholder(tf.int32, shape=(batch_size))
         keep_prob = tf.placeholder(tf.float32)
-        re_image = tf.reshape(imagein, [-1, 28, 28, 1])
 
-        w1 = weight([5, 5, 1, 32])
-        b1 = bias([32])
-        h1 = tf.nn.relu(conv2d(re_image, w1) + b1)
-        hp1 = tf.nn.max_pool(h1,ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+        w1 = weight([input_length,128])
+        b1 = bias([128])
+        h1 =  tf.nn.relu(tf.matmul(imagein, w1) + b1)
 
-        w2 = weight([5, 5, 32, 64])
-        b2 = bias([64])
-        h2 = tf.nn.relu(conv2d(hp1, w2) + b2)
-        hp2 = tf.nn.max_pool(h2,ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-        hp2f = tf.reshape(hp2, [-1, 7 * 7 * 64])
-
-        w3 = weight([7 * 7 * 64, 1024])
-        b3 = bias([1024])
-        h3 = tf.nn.relu(tf.matmul(hp2f, w3) + b3)
+        w3 = weight([128, 64])
+        b3 = bias([64])
+        h3 = tf.nn.relu(tf.matmul(h1, w3) + b3)
         h3d = tf.nn.dropout(h3, keep_prob)
 
-        w4 = weight([1024, 10])
+        w4 = weight([64, 10])
         b4 = bias([10])
-
         y_predict_mid = tf.matmul(h3d, w4) + b4
 
         y_predict=tf.nn.l2_normalize(y_predict_mid,[1])
@@ -123,7 +114,7 @@ def main(_):
                     for i0 in range(FLAGS.batch_size):
                           lgans=np.argmax(logi[i0])
                           if(lgans!=answers[i0] and False):
-                                for tt in range(784):
+                                for tt in range(input_length):
                                     if(tt%28==0): print(' ');
                                     if(inputs[i0][tt]!=0):
                                         print('1',end=' ');
@@ -151,7 +142,7 @@ def main(_):
                     '''
                 if(data_sets.pointer>100000000 ):
                     print('anst:',np.argmax(anst[0]),' gen:',data_sets.pointer,' step:',step)
-                    for i2 in range(784):
+                    for i2 in range(input_length):
                         if(inputs[0][i2]!=0):
                             print('1',end=' ');
                         else:
