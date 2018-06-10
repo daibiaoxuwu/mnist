@@ -4,7 +4,8 @@ import math
 import numpy as np
 
 import tensorflow as tf
-from mnistreader_old2 import reader
+from mnistreader_commit import reader
+import mnistreaderout
 
 batch_size=50
 input_length=784
@@ -40,7 +41,6 @@ def test_acc(sess, correctcount,data_set,batch_size,imagein,labelin,keep_prob):
 #                      print('np',np.argmax(i),answers,answers[i0],'np')
                           print(lgans,answers[i0])
                           '''
-                # Update the events file.
     precision = float(total) / 7000
     print('correct: %d  precision: %f' % (total, precision),end='')
     data_set.pointer=oldpointer
@@ -88,7 +88,7 @@ def main(_):
         loss=tf.losses.sparse_softmax_cross_entropy(labels=labelin, logits=y_predict)
         correctcount=tf.reduce_sum(tf.cast(tf.nn.in_top_k(y_predict,labelin,1), tf.int32))
 
-        optimizer = tf.train.GradientDescentOptimizer(0.001)
+        optimizer = tf.train.GradientDescentOptimizer(0.01)
         trainop = optimizer.minimize(loss)
 
 
@@ -139,6 +139,26 @@ def main(_):
                         print('saved to',checkpoint_file)
                     else:
                         print()
+        with open('submission_gyq.csv','w') as f:
+            f.write('ImageId,Label\n')
+            data_sets=mnistreaderout.reader()
+            for step in range(560):
+                inputs,answers=data_sets.list_tags(batch_size)
+                feed_dict = { x: inputs, y_: answers }
+                anst=sess.run([y_conv], feed_dict=feed_dict)[0]
+                for i in range(len(anst)):
+                    f.write(str(data_sets.pointer-batch_size+i+1)+','+str(np.argmax(anst[i]))+'\n')
+                    '''
+                if(data_sets.pointer>100000000 ):
+                    print('anst:',np.argmax(anst[0]),' gen:',data_sets.pointer,' step:',step)
+                    for i2 in range(784):
+                        if(inputs[0][i2]!=0):
+                            print('1',end=' ');
+                        else:
+                            print(' ',end=' ');
+                        if(i2%28==0): print(' ');
+                    input()
+                    '''
   
 if __name__ == '__main__':
     tf.app.run()
